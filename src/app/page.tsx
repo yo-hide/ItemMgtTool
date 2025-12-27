@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { User, Item, ItemType } from "@/types";
-import { Plus, Trash2, Clock, Hand, Edit2 } from "lucide-react";
-import { format, addDays, isAfter, differenceInDays, differenceInHours } from "date-fns";
+import { Plus, Trash2, Edit2 } from "lucide-react";
+import { format, addDays, isAfter, differenceInDays, differenceInHours, differenceInMinutes } from "date-fns";
 import { ja } from "date-fns/locale";
 
 export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [newUserName, setNewUserName] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -20,12 +21,40 @@ export default function Home() {
         console.error("Failed to load users", e);
       }
     }
+    setIsLoaded(true);
   }, []);
 
   // Save to localStorage on change
   useEffect(() => {
+    if (!isLoaded) return;
     localStorage.setItem("line-item-mgt-users", JSON.stringify(users));
-  }, [users]);
+  }, [users, isLoaded]);
+
+  // Check for expired items every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setUsers((currentUsers) => {
+        let hasChanges = false;
+        const newUsers = currentUsers.map((user) => {
+          const activeItems = user.items.filter((item) => item.expiresAt > now);
+          if (activeItems.length !== user.items.length) {
+            hasChanges = true;
+            return { ...user, items: activeItems };
+          }
+          return user;
+        });
+        return hasChanges ? newUsers : currentUsers;
+      });
+      // Force re-render for countdown even if no changes (via state update or specific tick? 
+      // Actually setUsers with same identity won't re-render. 
+      // We need a tick state to animate the seconds.)
+      setTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const [, setTick] = useState(0);
 
   const addUser = () => {
     let nameToUse = newUserName.trim();
@@ -60,7 +89,7 @@ export default function Home() {
   };
 
   const renameUser = (userId: string, currentName: string) => {
-    const newName = prompt("新しいユーザー名を入力してください", currentName);
+    const newName = prompt("新しいユーザー名を入力してください", "");
     if (newName && newName.trim()) {
       setUsers(users.map((u) => (u.id === userId ? { ...u, name: newName.trim() } : u)));
     }
@@ -118,7 +147,7 @@ export default function Home() {
             value={newUserName}
             onChange={(e) => setNewUserName(e.target.value)}
             placeholder="新しいユーザー名"
-            className="w-64 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-48 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === 'Enter' && addUser()}
           />
           <button
@@ -157,7 +186,7 @@ export default function Home() {
               <div className="flex flex-col gap-3 w-full md:w-auto">
                 {['Glove', 'Time'].map((type) => {
                   const itemType = type as ItemType;
-                  const itemsOfType = user.items.filter(i => i.type === itemType).sort((a, b) => a.expiresAt - b.expiresAt);
+                  const itemsOfType = user.items.filter(i => i.type === itemType).sort((a, b) => a.acquiredAt - b.acquiredAt);
                   const availableItems = itemsOfType.filter(i => i.expiresAt > Date.now());
                   const expiredItems = itemsOfType.filter(i => i.expiresAt <= Date.now());
                   const count = availableItems.length;
@@ -172,7 +201,7 @@ export default function Home() {
                           : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
                           }`}
                       >
-                        {itemType === 'Glove' ? <Hand size={16} /> : <Clock size={16} />}
+                        {itemType === 'Glove' ? <span className="text-base">🥊</span> : <span className="text-base">🕙</span>}
                         追加
                       </button>
 
@@ -191,9 +220,10 @@ export default function Home() {
                             const now = Date.now();
                             const days = differenceInDays(expiry, now);
                             const hours = differenceInHours(expiry, now) % 24;
+                            const minutes = differenceInMinutes(expiry, now) % 60;
                             return (
                               <div className="text-xs text-slate-600 font-medium truncate">
-                                残り <span className="text-base font-bold">{days}</span>D <span className="text-base font-bold">{hours}</span>h
+                                残り <span className="text-base font-bold">{days}</span>D <span className="text-base font-bold">{hours}</span>h <span className="text-base font-bold">{minutes}</span>m
                               </div>
                             );
                           })() : (
@@ -227,7 +257,7 @@ export default function Home() {
                             if (count > 0) useItem(user.id, availableItems[0].id);
                           }}
                           disabled={count === 0}
-                          className={`text-xs px-2 py-1 rounded border transition-colors shrink-0 ${count > 0
+                          className={`text-sm px-3 py-1.5 rounded border transition-colors shrink-0 ${count > 0
                             ? 'bg-white border-neutral-200 text-slate-600 hover:bg-slate-50 cursor-pointer'
                             : 'bg-neutral-100 border-neutral-200 text-neutral-300 cursor-not-allowed'
                             }`}
