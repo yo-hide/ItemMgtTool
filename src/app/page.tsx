@@ -108,7 +108,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-8 bg-neutral-50 text-neutral-900 font-sans">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-center text-slate-800">LINE アイテム管理</h1>
 
         {/* User Addition Input */}
@@ -131,11 +131,11 @@ export default function Home() {
         </div>
 
         {/* Users List */}
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6 w-full">
           {sortedUsers.map((user) => (
-            <div key={user.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 flex flex-row items-center gap-4 overflow-x-auto">
+            <div key={user.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 flex flex-wrap items-center gap-4">
               {/* Left Side: User Info & Actions */}
-              <div className="flex items-center gap-4 min-w-[200px] shrink-0">
+              <div className="flex items-center gap-4 min-w-[200px]">
                 <h2 className="text-xl font-bold text-slate-700 min-w-[120px]">{user.name}</h2>
                 <div className="flex gap-2">
                   <button
