@@ -2,14 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { User, Item, ItemType } from "@/types";
-import { Plus, Trash2, Edit2 } from "lucide-react";
+import { Plus, Trash2, Edit2, X } from "lucide-react";
 import { format, addDays, isAfter, differenceInDays, differenceInHours, differenceInMinutes } from "date-fns";
 import { ja } from "date-fns/locale";
+
+type ModalState =
+  | { type: 'NONE' }
+  | { type: 'RENAME_USER'; userId: string; currentName: string; inputValue: string }
+  | { type: 'DELETE_USER'; userId: string; userName: string }
+  | { type: 'USE_ITEM'; userId: string; itemId: string }
+  | { type: 'DELETE_EXPIRED'; userId: string; itemType: ItemType };
 
 export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [newUserName, setNewUserName] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [modal, setModal] = useState<ModalState>({ type: 'NONE' });
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -82,17 +90,12 @@ export default function Home() {
     setNewUserName("");
   };
 
-  const deleteUser = (userId: string) => {
-    if (confirm("ユーザーを削除しますか？")) {
-      setUsers(users.filter((u) => u.id !== userId));
-    }
+  const deleteUser = (userId: string, userName: string) => {
+    setModal({ type: 'DELETE_USER', userId, userName });
   };
 
   const renameUser = (userId: string, currentName: string) => {
-    const newName = prompt("新しいユーザー名を入力してください", "");
-    if (newName && newName.trim()) {
-      setUsers(users.map((u) => (u.id === userId ? { ...u, name: newName.trim() } : u)));
-    }
+    setModal({ type: 'RENAME_USER', userId, currentName, inputValue: "" });
   };
 
   const addItem = (userId: string, type: ItemType) => {
@@ -112,13 +115,37 @@ export default function Home() {
   };
 
   const useItem = (userId: string, itemId: string) => {
-    if (confirm("アイテムを使用（削除）しますか？")) {
+    setModal({ type: 'USE_ITEM', userId, itemId });
+  };
+
+  const deleteExpiredItems = (userId: string, itemType: ItemType) => {
+    setModal({ type: 'DELETE_EXPIRED', userId, itemType });
+  };
+
+  const executeModalAction = () => {
+    if (modal.type === 'NONE') return;
+
+    if (modal.type === 'DELETE_USER') {
+      setUsers(users.filter((u) => u.id !== modal.userId));
+    } else if (modal.type === 'RENAME_USER') {
+      if (modal.inputValue && modal.inputValue.trim()) {
+        setUsers(users.map((u) => (u.id === modal.userId ? { ...u, name: modal.inputValue.trim() } : u)));
+      }
+    } else if (modal.type === 'USE_ITEM') {
       setUsers(users.map(user => {
-        if (user.id !== userId) return user;
-        return { ...user, items: user.items.filter(i => i.id !== itemId) };
+        if (user.id !== modal.userId) return user;
+        return { ...user, items: user.items.filter(i => i.id !== modal.itemId) };
+      }));
+    } else if (modal.type === 'DELETE_EXPIRED') {
+      setUsers(users.map(u => {
+        if (u.id !== modal.userId) return u;
+        return { ...u, items: u.items.filter(i => !(i.type === modal.itemType && i.expiresAt <= Date.now())) };
       }));
     }
+    setModal({ type: 'NONE' });
   };
+
+  const closeModal = () => setModal({ type: 'NONE' });
 
   const getEarliestGloveExpiry = (user: User) => {
     // Only consider available gloves for sorting priority? Or all gloves including expired?
@@ -174,7 +201,7 @@ export default function Home() {
                     <Edit2 size={18} />
                   </button>
                   <button
-                    onClick={() => deleteUser(user.id)}
+                    onClick={() => deleteUser(user.id, user.name)}
                     className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
                   >
                     <Trash2 size={20} />
@@ -235,14 +262,7 @@ export default function Home() {
                             <div className="text-[10px] text-red-500 flex items-center gap-1">
                               期限切れ: {expiredItems.length}
                               <button
-                                onClick={() => {
-                                  if (confirm("期限切れアイテムを全て削除しますか？")) {
-                                    setUsers(users.map(u => {
-                                      if (u.id !== user.id) return u;
-                                      return { ...u, items: u.items.filter(i => !(i.type === itemType && i.expiresAt <= Date.now())) };
-                                    }));
-                                  }
-                                }}
+                                onClick={() => deleteExpiredItems(user.id, itemType)}
                                 className="underline hover:text-red-700"
                               >
                                 削除
@@ -279,6 +299,75 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Modal */}
+      {modal.type !== 'NONE' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="p-4 border-b border-neutral-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">LINE アイテム管理</h3>
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {modal.type === 'DELETE_USER' && (
+                <p className="text-slate-600">
+                  ユーザー「<span className="font-bold text-slate-800">{modal.userName}</span>」を削除しますか？
+                </p>
+              )}
+
+              {modal.type === 'RENAME_USER' && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-slate-600 mb-2">新しい名前を入力してください</p>
+                  <input
+                    type="text"
+                    value={modal.inputValue}
+                    onChange={(e) => setModal({ ...modal, inputValue: e.target.value })}
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="新しい名前"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') executeModalAction();
+                    }}
+                  />
+                </div>
+              )}
+
+              {modal.type === 'USE_ITEM' && (
+                <p className="text-slate-600">
+                  アイテムを使用（削除）しますか？
+                </p>
+              )}
+
+              {modal.type === 'DELETE_EXPIRED' && (
+                <p className="text-slate-600">
+                  期限切れアイテムを全て削除しますか？
+                </p>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-neutral-100 flex justify-end gap-2">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors font-medium text-sm"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={executeModalAction}
+                className={`px-4 py-2 text-white rounded-lg transition-colors font-medium text-sm ${modal.type === 'DELETE_USER' || modal.type === 'DELETE_EXPIRED'
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+              >
+                {modal.type === 'RENAME_USER' ? '変更' : modal.type === 'USE_ITEM' ? '使用' : '削除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
