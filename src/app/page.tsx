@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { User, Item, ItemType } from "@/types";
-import { Plus, Trash2, Clock, Hand } from "lucide-react";
-import { format, addDays, isAfter } from "date-fns";
+import { Plus, Trash2, Clock, Hand, Edit2 } from "lucide-react";
+import { format, addDays, isAfter, differenceInDays, differenceInHours } from "date-fns";
 import { ja } from "date-fns/locale";
 
 export default function Home() {
@@ -59,6 +59,13 @@ export default function Home() {
     }
   };
 
+  const renameUser = (userId: string, currentName: string) => {
+    const newName = prompt("新しいユーザー名を入力してください", currentName);
+    if (newName && newName.trim()) {
+      setUsers(users.map((u) => (u.id === userId ? { ...u, name: newName.trim() } : u)));
+    }
+  };
+
   const addItem = (userId: string, type: ItemType) => {
     const now = Date.now();
     const expiresAt = addDays(now, 5).getTime();
@@ -84,19 +91,34 @@ export default function Home() {
     }
   };
 
+  const getEarliestGloveExpiry = (user: User) => {
+    // Only consider available gloves for sorting priority? Or all gloves including expired?
+    // "Expiry is old" implies we care about the date itself.
+    // Let's take the minimum expiresAt of any Glove the user holds.
+    // If we only cared about active ones, we'd filter by Date.now(). 
+    // Assuming we want to see who is expiring soonest.
+    const gloves = user.items.filter((i) => i.type === "Glove" && i.expiresAt > Date.now());
+    if (gloves.length === 0) return Infinity; // No active gloves -> Last
+    return Math.min(...gloves.map((i) => i.expiresAt));
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    return getEarliestGloveExpiry(a) - getEarliestGloveExpiry(b);
+  });
+
   return (
     <main className="min-h-screen p-8 bg-neutral-50 text-neutral-900 font-sans">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-center text-slate-800">LINE アイテム管理</h1>
 
         {/* User Addition Input */}
-        <div className="flex gap-4 mb-10 bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+        <div className="flex gap-4 mb-4 bg-white p-6 rounded-xl shadow-sm border border-neutral-200 w-auto inline-flex">
           <input
             type="text"
             value={newUserName}
             onChange={(e) => setNewUserName(e.target.value)}
             placeholder="新しいユーザー名"
-            className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-64 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === 'Enter' && addUser()}
           />
           <button
@@ -110,72 +132,112 @@ export default function Home() {
 
         {/* Users List */}
         <div className="space-y-6">
-          {users.map((user) => (
-            <div key={user.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-              <div className="bg-slate-50 px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-slate-700">{user.name}</h2>
-                <button
-                  onClick={() => deleteUser(user.id)}
-                  className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
-                  title="ユーザーを削除"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-
-              <div className="p-6">
-                <div className="mb-4 flex gap-3">
+          {sortedUsers.map((user) => (
+            <div key={user.id} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 flex flex-row items-center gap-4 overflow-x-auto">
+              {/* Left Side: User Info & Actions */}
+              <div className="flex items-center gap-4 min-w-[200px] shrink-0">
+                <h2 className="text-xl font-bold text-slate-700 min-w-[120px]">{user.name}</h2>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => addItem(user.id, 'Glove')}
-                    className="flex-1 py-2 px-4 bg-emerald-100 text-emerald-800 rounded-lg hover:bg-emerald-200 transition-colors flex items-center justify-center gap-2 text-sm font-semibold"
+                    onClick={() => renameUser(user.id, user.name)}
+                    className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors"
                   >
-                    <Hand size={18} />
-                    グローブを追加
+                    <Edit2 size={18} />
                   </button>
                   <button
-                    onClick={() => addItem(user.id, 'Time')}
-                    className="flex-1 py-2 px-4 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors flex items-center justify-center gap-2 text-sm font-semibold"
+                    onClick={() => deleteUser(user.id)}
+                    className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
                   >
-                    <Clock size={18} />
-                    タイムを追加
+                    <Trash2 size={20} />
                   </button>
                 </div>
+              </div>
 
-                {user.items.length === 0 ? (
-                  <p className="text-neutral-400 text-center py-4 text-sm">アイテムを持っていません</p>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {user.items.map((item) => {
-                      const isExpired = Date.now() > item.expiresAt;
+              {/* Right Side: Items Management (Glove top, Time bottom) */}
+              <div className="flex flex-col gap-3 w-full md:w-auto">
+                {['Glove', 'Time'].map((type) => {
+                  const itemType = type as ItemType;
+                  const itemsOfType = user.items.filter(i => i.type === itemType).sort((a, b) => a.expiresAt - b.expiresAt);
+                  const availableItems = itemsOfType.filter(i => i.expiresAt > Date.now());
+                  const expiredItems = itemsOfType.filter(i => i.expiresAt <= Date.now());
+                  const count = availableItems.length;
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={`flex justify-between items-center p-3 rounded-lg border ${isExpired ? 'bg-neutral-100 border-neutral-200 opacity-60' :
-                            item.type === 'Glove' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
+                  return (
+                    <div key={type} className="flex items-center gap-4">
+                      {/* Add Button */}
+                      <button
+                        onClick={() => addItem(user.id, itemType)}
+                        className={`w-20 py-2 rounded-lg flex items-center justify-center gap-1 text-sm font-semibold transition-colors ${itemType === 'Glove'
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          }`}
+                      >
+                        {itemType === 'Glove' ? <Hand size={16} /> : <Clock size={16} />}
+                        追加
+                      </button>
+
+                      {/* Info Panel */}
+                      <div className={`flex items-center gap-2 p-2 rounded-lg border min-w-[200px] ${itemType === 'Glove' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
+                        }`}>
+                        {/* Count */}
+                        <span className="text-lg bg-white px-3 py-0.5 rounded border border-neutral-200 font-bold min-w-[3rem] text-center">
+                          {count}
+                        </span>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Expiry Info */}
+                          {count > 0 ? (() => {
+                            const expiry = availableItems[0].expiresAt;
+                            const now = Date.now();
+                            const days = differenceInDays(expiry, now);
+                            const hours = differenceInHours(expiry, now) % 24;
+                            return (
+                              <div className="text-xs text-slate-600 font-medium truncate">
+                                残り <span className="text-base font-bold">{days}</span>D <span className="text-base font-bold">{hours}</span>h
+                              </div>
+                            );
+                          })() : (
+                            <div className="text-xs text-slate-400">未使用</div>
+                          )}
+
+                          {/* Expired Warning */}
+                          {expiredItems.length > 0 && (
+                            <div className="text-[10px] text-red-500 flex items-center gap-1">
+                              期限切れ: {expiredItems.length}
+                              <button
+                                onClick={() => {
+                                  if (confirm("期限切れアイテムを全て削除しますか？")) {
+                                    setUsers(users.map(u => {
+                                      if (u.id !== user.id) return u;
+                                      return { ...u, items: u.items.filter(i => !(i.type === itemType && i.expiresAt <= Date.now())) };
+                                    }));
+                                  }
+                                }}
+                                className="underline hover:text-red-700"
+                              >
+                                削除
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Use Button */}
+                        <button
+                          onClick={() => {
+                            if (count > 0) useItem(user.id, availableItems[0].id);
+                          }}
+                          disabled={count === 0}
+                          className={`text-xs px-2 py-1 rounded border transition-colors shrink-0 ${count > 0
+                            ? 'bg-white border-neutral-200 text-slate-600 hover:bg-slate-50 cursor-pointer'
+                            : 'bg-neutral-100 border-neutral-200 text-neutral-300 cursor-not-allowed'
                             }`}
                         >
-                          <div>
-                            <div className="flex items-center gap-2 font-bold text-sm text-slate-700">
-                              {item.type === 'Glove' ? <Hand size={16} className="text-emerald-600" /> : <Clock size={16} className="text-amber-600" />}
-                              {item.type === 'Glove' ? 'グローブ' : 'タイム'}
-                              {isExpired && <span className="text-xs bg-neutral-500 text-white px-1.5 py-0.5 rounded">期限切れ</span>}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              有効期限: {format(item.expiresAt, 'MM/dd HH:mm', { locale: ja })}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => useItem(user.id, item.id)}
-                            className="bg-white border border-neutral-200 text-slate-600 text-xs px-3 py-1.5 rounded hover:bg-slate-50 transition-colors pointer-events-auto"
-                          >
-                            使用する
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          使用
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
