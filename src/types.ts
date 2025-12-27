@@ -1,4 +1,4 @@
-export type ItemType = 'Glove' | 'Time';
+export type ItemType = 'Glove';
 
 export interface Item {
   id: string;

@@ -211,7 +211,7 @@ export default function Home() {
 
               {/* Right Side: Items Management (Glove top, Time bottom) */}
               <div className="flex flex-col gap-3 w-full md:w-auto">
-                {['Glove', 'Time'].map((type) => {
+                {['Glove'].map((type) => {
                   const itemType = type as ItemType;
                   const itemsOfType = user.items.filter(i => i.type === itemType).sort((a, b) => a.acquiredAt - b.acquiredAt);
                   const availableItems = itemsOfType.filter(i => i.expiresAt > Date.now());
@@ -228,7 +228,7 @@ export default function Home() {
                           : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
                           }`}
                       >
-                        {itemType === 'Glove' ? <span className="text-base">🥊</span> : <span className="text-base">🕙</span>}
+                        <span className="text-base">🥊</span>
                         追加
                       </button>
 
