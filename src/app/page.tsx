@@ -174,7 +174,7 @@ export default function Home() {
             value={newUserName}
             onChange={(e) => setNewUserName(e.target.value)}
             placeholder="新しいユーザー名"
-            className="w-48 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-44 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             onKeyDown={(e) => e.key === 'Enter' && addUser()}
           />
           <button
@@ -358,8 +358,8 @@ export default function Home() {
               <button
                 onClick={executeModalAction}
                 className={`px-4 py-2 text-white rounded-lg transition-colors font-medium text-sm ${modal.type === 'DELETE_USER' || modal.type === 'DELETE_EXPIRED'
-                    ? 'bg-red-500 hover:bg-red-600'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-blue-600 hover:bg-blue-700'
                   }`}
               >
                 {modal.type === 'RENAME_USER' ? '変更' : modal.type === 'USE_ITEM' ? '使用' : '削除'}
