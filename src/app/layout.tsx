@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LINE アイテム管理ツール",
-  description: "LINEアイテム管理ツール",
+  title: "アイテム管理ツール",
+  description: "アイテム管理ツール",
 };
 
 export default function RootLayout({

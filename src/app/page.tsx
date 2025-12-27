@@ -165,7 +165,7 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8 bg-neutral-50 text-neutral-900 font-sans">
       <div className="w-full mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-center text-slate-800">LINE アイテム管理</h1>
+        <h1 className="text-3xl font-bold mb-8 text-center text-slate-800">アイテム管理</h1>
 
         {/* User Addition Input */}
         <div className="flex gap-4 mb-4 bg-white p-6 rounded-xl shadow-sm border border-neutral-200 w-auto inline-flex">
@@ -305,7 +305,7 @@ export default function Home() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
             <div className="p-4 border-b border-neutral-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-800">LINE アイテム管理</h3>
+              <h3 className="font-bold text-slate-800">アイテム管理</h3>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
