@@ -10,7 +10,7 @@ env:
   # You can change these defaults
   REGION: asia-northeast1
   REPO_NAME: cloud-run-source-deploy
-  SERVICE_NAME: line-item-mgt-tool
+  SERVICE_NAME: item-mgt-tool
 
 jobs:
   deploy:
